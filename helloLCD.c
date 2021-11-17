@@ -19,6 +19,7 @@
 ********************************************************************/
 
 #include <xc.h>
+#include <stdlib.h>
 
 // PIC18F2580 Configuration Bit Settings
 // Configuration bits are stored in SFR configuration bytes
@@ -113,6 +114,8 @@ void lcd_puts(const char *s);
 void lcd_putch(char c);
 void lcd_goto(unsigned char c);
 
+
+int hexToDec(char* hexValue);
 
 /*----------------------------------------------------------
 	Subroutine: main
@@ -266,4 +269,11 @@ void lcd_goto(unsigned char pos)    //Go to the specified position
                                     //and so don't corrupt the bit for 0x80.
                                     //See the "Set DDRAM address" section of
                                     //the datasheet
+}
+
+
+
+// function that converts hex input to decimal
+int hexToDec(char* hexValue) {
+    return (int)strtol(hexValue, NULL, 16);
 }
