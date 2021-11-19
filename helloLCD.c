@@ -118,6 +118,8 @@ void lcd_goto(unsigned char c);
 int hexToDec(char* hexInput);
 int secondsToHour(int seconds);
 int secondsToMinutes (int seconds);
+int convertTimeFormat(int hour);
+int timeFormatFlag(int hour);
 
 /*----------------------------------------------------------
 	Subroutine: main
@@ -291,4 +293,26 @@ int secondsToMinutes (int seconds) {
     return remainder / 60;
 }
 
+// function that converts 24 hour format to 12 hour format
+int convertTimeFormat(int hour) {
+    if ((hour > 12) && (hour <= 23)) {
+        return hour -= 12;
+    } else if (hour == 0) {
+        return 12;
+    }
+    
+    return hour;
+}
 
+// function that determines AM or PM for the 12 hour time format
+int timeFormatFlag(int hour) {
+    int flag;
+    
+    if (hour < 12) {
+        flag = 65;
+    } else {
+        flag = 80;
+    }
+    
+    return flag;
+}
