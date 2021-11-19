@@ -115,8 +115,9 @@ void lcd_putch(char c);
 void lcd_goto(unsigned char c);
 
 
-int hexToDec(char* hexValue);
+int hexToDec(char* hexInput);
 int secondsToHour(int seconds);
+int secondsToMinutes (int seconds);
 
 /*----------------------------------------------------------
 	Subroutine: main
@@ -275,8 +276,8 @@ void lcd_goto(unsigned char pos)    //Go to the specified position
 
 
 // function that converts hex input to decimal
-int hexToDec(char* hexValue) {
-    return (int)strtol(hexValue, NULL, 16);
+int hexToDec(char* hexInput) {
+    return (int)strtol(hexInput, NULL, 16);
 }
 
 // function that converts seconds to the hour value
@@ -285,6 +286,9 @@ int secondsToHour(int seconds) {
 }
 
 // function that converts seconds to the minute value
-
+int secondsToMinutes (int seconds) {
+    int remainder = seconds % 3600;
+    return remainder / 60;
+}
 
 
