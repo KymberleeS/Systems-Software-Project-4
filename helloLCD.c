@@ -116,6 +116,7 @@ void lcd_goto(unsigned char c);
 
 
 int hexToDec(char* hexValue);
+int secondsToHour(int seconds);
 
 /*----------------------------------------------------------
 	Subroutine: main
@@ -277,3 +278,13 @@ void lcd_goto(unsigned char pos)    //Go to the specified position
 int hexToDec(char* hexValue) {
     return (int)strtol(hexValue, NULL, 16);
 }
+
+// function that converts seconds to the hour value
+int secondsToHour(int seconds) {
+    return seconds / 3600;
+}
+
+// function that converts seconds to the minute value
+
+
+
