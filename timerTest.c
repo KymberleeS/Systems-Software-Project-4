@@ -1,3 +1,4 @@
+
 /********************************************************************
  FileName:     	helloLCD.c
  Dependencies:	See INCLUDES section
@@ -88,10 +89,13 @@ compiler needs to know what the speed is that the MCU is running at. See
 
 #define number 0x30     //Offset in ASCII table to get to where numbers start
 
-#define	LCD_RS LATAbits.LA6      // LCD Register Select.
-//#define	LCD_RW RA4      	// LCD Read/Write.
-#define LCD_EN LATAbits.LA7     // LCD Enable.
-#define LCD_DATA LATC  			// RC0-RC3 data to LCD in 4-bit mode. RC4-RC7 not used.
+//#define	LCD_RS LATAbits.LA6      // LCD Register Select.
+//#define LCD_EN LATAbits.LA7     // LCD Enable.
+//#define LCD_DATA LATC  			// RC0-RC3 data to LCD in 4-bit mode. RC4-RC7 not used.
+#define LCD_RS LATCbits.LC0
+#define LCD_EN LATCbits.LC1
+#define CS LATCbits.LC2
+#define LCD_DATA LATA 
 
 #define	LCD_STROBE()    ((LCD_EN = 1),(LCD_EN=0))  //C macro substitution with arguements
                         // LCD strobe sends a quick pulse to the LCD enable.
@@ -103,15 +107,20 @@ compiler needs to know what the speed is that the MCU is running at. See
 unsigned char b0;       //counter for displaying numbers
 
 /** SUBROUTINE DECLARATIONS********************************/
-
 void Initialize(void);
 void lcd_write(unsigned char c);
 void lcd_clear(void);
 void lcd_puts(const char *s);
 void lcd_putch(char c);
 void lcd_goto(unsigned char c);
-
-
+void spi_write(unsigned char x);
+unsigned char spi_read(void);
+void do_outputs(void);
+void get_inputs(void);
+unsigned char sec,sec10,min,min10,hour,hour10; //Variables for the time chip
+unsigned char seconds,minutes,hours,x,y,z,am; //Variables for the time chip
+unsigned char day,date,month,year,date_h,date_l,month_h,month_l,year_h,year_l; //Variables for the time chip
+int flag = 0;
 /*----------------------------------------------------------
 	Subroutine: main
 -----------------------------------------------------------*/
@@ -121,40 +130,33 @@ Initialize(); //Initialize subroutine runs only once
 while(1){ //infinite loop
 	lcd_clear();			// Clear LCD screen
 	lcd_goto(0);			// select first line
-    
-    //int hByte = TMR0;
-    //int lByte = TMR0L;
-    /*int total = (int)TMR0;
-    int hrs = total / 3600;
-    int min = (total - (hrs*3600)) / 60;
-    
-    int hr1 = hrs / 10;
-    int hr2 = hrs % 10;
-    
-    int min1 = min / 10;
-    int min2 = min % 10;
-    
-    
-    
-    lcd_putch((char)hr1+number);   // Display count on LCD
-    lcd_putch((char)hr2+number);
-    lcd_putch((char)min1+number);
-    lcd_putch((char)min2+number);
-    */
-    TMR0L = 0x00; //incrementing by 19d in current configuration 
-    lcd_putch(TMR0L+number);
-    lcd_putch(TMR0L+number-0x10);
-    lcd_putch(TMR0L+number-0x10);
-    lcd_putch(TMR0L+number-0x10);
-    //lcd_putch(TMR0L+number);
+    lcd_puts("HH");
+    lcd_putch(0x3A);
+    lcd_puts("MM");
     __delay_ms(250);
 
 	lcd_goto(0x40);                 // Select second line
-	lcd_puts("Hello World!");   // Display Text
+	lcd_puts("Running...");   // Display Text
 	__delay_ms(500);		// Delay for 1/2 second to read display
 	__delay_ms(500);		// Delay for 1/2 second to read display
 	__delay_ms(500);		// Delay for 1/2 second to read display
 	__delay_ms(500);		// Delay for 1/2 second to read display
+    lcd_clear();
+    lcd_puts("firing get_inputs()...");   // Display Text
+    __delay_ms(2000);		// Delay for 2 seconds to read display
+    get_inputs();
+    
+    lcd_goto(0x40);
+    lcd_puts("get_inputs() runs...");   // Display Text
+    __delay_ms(2000);		// Delay for 2 seconds to read display
+    lcd_clear();
+    lcd_goto(0);
+    lcd_puts("firing do_outputs()...");
+    lcd_goto(0x40);
+    do_outputs;
+    
+    lcd_puts("do_outputs() runs...");   // Display Text
+    __delay_ms(2000);		// Delay for 2 seconds to read display
 }
 
 }
@@ -165,11 +167,11 @@ while(1){ //infinite loop
 
 void Initialize(void){
    //Set the GPIO pin configurations
-
-    TRISAbits.RA6 = 0; // Sets Port A bit to output
-    TRISAbits.RA7 = 0; // Sets Port A bit to output
-    TRISC = 0; // Set Port C bits for outputs
-
+    /***WE WANT TO ONLY USE A0-A5, RESERVE PORTC FOR SPI***/
+    TRISCbits.RC0 = 0; // Sets Port C bit to output
+    TRISCbits.RC1 = 0; // Sets Port C bit to output
+    TRISA = 0;
+    PORTCbits.RC2 = 1;
                   //We will use the LCD in 4 bit mode, instead of 8 bit mode.
                   //This will save us 4 i/o pins
                   //See page 46 (Figure 24) of the Hitachi datasheet to
@@ -180,7 +182,6 @@ void Initialize(void){
 
     LCD_RS = 0;             //LCD control pin set to low
 	LCD_EN = 0;             //LCD control pin set to low
-//	LCD_RW = 0;             //LCD control pin set to low
 
 	init_value = 0x03;      //Required for initial FUNCTION SET. see pg 46
 
@@ -217,11 +218,14 @@ void Initialize(void){
                                 // when a character code us written to DDRAM
                                 //Bit 0 clear = no shift in display.
         //LCD Initialization is done
-    //Timer0
-   // T0CON = 0b10001000;
-    T0CON = 0b11001000;
-    TMR0L = 0x00; 
-    //TMR0H = 0x00;
+    /***CONFIG SPI COMMICATION PERIPHERAL***/
+    //SSPSTAT = 0b10000000;    //Sets the data to be sampled at the end of the time
+    //SSPCON1 = 0b00000001;    
+                            /*Sets register for no collision, no slave mode, 
+                              enables serial ports for SPI ports, 
+                              idle clock high, Fosc/16*/
+     SSPSTAT = 0b10000000; //Sets the data to be sampled at the end of the time
+     SSPCON1 = 0b00110001;       //enable SPI, CLOCK idle high, fosc/16
 }
 void lcd_write(unsigned char c)   //write a byte to the LCD in 4 bit mode
                                   //we send a byte to PORTC but only RC0-RC3
@@ -288,4 +292,87 @@ void lcd_goto(unsigned char pos)    //Go to the specified position
                                     //and so don't corrupt the bit for 0x80.
                                     //See the "Set DDRAM address" section of
                                     //the datasheet
+}
+
+/***ISSUE WITH SPI_WRITE***/
+void spi_write(unsigned char x){
+    unsigned char temp;
+    SSPBUF = x;         //fill buffer
+    while(SSPIF == 0);  //waits til complete byte received
+    temp = SSPBUF;      //empty buffer
+    SSPIF = 0;          //reset SSPIF interrupt
+}
+
+unsigned char spi_read(void){
+    unsigned char data;
+    SSPBUF = 0x33;
+    while(SSPIF == 0);
+    data = SSPBUF;
+    SSPIF = 0;
+    return(data);
+}
+
+void do_outputs(void){
+            CS = 0;                     //read time & date
+            spi_write(0x00);
+            seconds = spi_read();
+            minutes = spi_read();
+            hours = spi_read();
+            day = spi_read();
+            date = spi_read();
+            month = spi_read();
+            year = spi_read();
+            CS = 1;
+      
+            sec = (seconds & 0x0f) + 0x30;          //do time digit prep
+            sec10 = ((seconds & 0x70) >> 4) + 0x30;
+            min = (minutes & 0x0f) + 0x30;
+            min10 = ((minutes & 0x70) >> 4) + 0x30;
+            hour = (hours & 0x0f) + 0x30;
+            hour10 = ((hours & 0x10) >> 4) + 0x30;
+            lcd_goto(0);
+            lcd_putch(hour10);
+            lcd_putch(hour);
+            lcd_puts(":");
+            lcd_putch(min10);
+            lcd_putch(min);
+            lcd_puts(":");
+            lcd_putch(sec10);
+            lcd_putch(sec);
+            date_h = (date & 0x0f) + 0x30;          
+            date_l = ((date & 0x30) >> 4) + 0x30;
+            month_h = (month & 0x0f) + 0x30;
+            month_l = ((month & 0x10) >> 4) + 0x30;
+            year_h = (year & 0x0f) + 0x30;
+            year_l = ((year & 0xf0) >> 4) + 0x30;
+            
+            //display date
+            lcd_goto(0x40);
+            lcd_putch(month_l);
+            lcd_putch(month_h);
+            lcd_puts("/");
+            lcd_putch(date_l);            
+            lcd_putch(date_h);   
+            lcd_puts("/");
+            lcd_putch(year_l);
+            lcd_putch(year_h);
+}
+
+void get_inputs(void){
+    if(!flag){
+        CS=0;
+        spi_write(0x80);        //address & write enable
+        spi_write(0x00);        //set seconds
+        spi_write(0x30);        //set minutes
+        spi_write(0x08);        //set 12 hour time & hours
+        spi_write(0x13);        //set day
+        spi_write(0x0B);        //set date
+        spi_write(0x0B);        //set century/month
+        spi_write(0x15);        //set year
+        spi_write(0x40);        //enable osc, enable sqw
+        spi_write(0x00);
+        CS = 1; 
+        flag = 1;
+    }
+    
 }
