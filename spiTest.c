@@ -122,6 +122,7 @@ unsigned char spi_read(void);
 
 void display_seconds(void);
 void display_minutes(void);
+void display_hours(void);
 //int hexToDec(char* hexInput);
 //int secondsToHour(int seconds);
 //int secondsToMinutes (int seconds);
@@ -413,6 +414,18 @@ void display_minutes(void) {
     spi_write(0x01);
     min = spi_read();
     
+    
+    CS = 1;
+}
+
+void display_hours(void) {
+    unsigned char hour;
+    unsigned char hour10;
+    
+    CS = 0;
+    
+    spi_write(0x02);
+    hour = spi_read();
     
     CS = 1;
 }
