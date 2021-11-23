@@ -204,9 +204,15 @@ void Initialize(void){
      
      /***CONFIG INTERRUPTS***/
     TRISBbits.RB0 = 1;      //Sets as input
-    INTEDG0 = 1;            //Sets INT1 to low to high
-    INT0F = 0;              //Clears INT1 Flag
+    INTEDG0 = 1;            //Sets INT0 to high to low
+    INT0F = 0;              //Clears INT0 Flag
     INT0E = 1;              //Enables external interrupt
+    GIE = 1;                //Enables unmasked interrupt to execute ISR
+    
+    TRISBbits.RB1 = 1;      //Sets as input
+    INTEDG1 = 1;            //Sets INT1 to high to low
+    INT1F = 0;              //Clears INT1 Flag
+    INT1E = 1;              //Enables external interrupt
     GIE = 1;                //Enables unmasked interrupt to execute ISR
 }
 void lcd_write(unsigned char c)   //write a byte to the LCD in 4 bit mode
@@ -312,13 +318,34 @@ void set_timer(void){
     }
     
 }
-
+int TFhr = 0;
 void __interrupt() changeTime(void){
     
     if(INT0F == 1){
         INT0F = 0;
-        lcd_puts("Hello"); 
+        /*lcd_puts("Hello"); 
         __delay_ms(500);		// Delay for 1/2 second to read display
+        lcd_clear();*/
+        if(TFhr == 1){
+            TFhr = 0;
+            lcd_puts("Switching to 12 HR");
+            __delay_ms(500);
+            lcd_clear();
+        }
+        else{
+            TFhr = 1;
+            lcd_puts("Switching to 24 HR");
+            __delay_ms(500);
+            lcd_clear();
+        }
+    }
+    
+    if(INT1F == 1){
+        INT1F = 0;
+        set_timer();
+        lcd_goto(0x40);
+        lcd_puts("Initial Time Set!");
+        __delay_ms(1000);
         lcd_clear();
     }
     
