@@ -18,6 +18,7 @@
 ********************************************************************/
 
 #include <xc.h>
+#include <stdlib.h>
 
 // PIC18F2580 Configuration Bit Settings
 // Configuration bits are stored in SFR configuration bytes
@@ -117,6 +118,13 @@ void display_time(void);
 void __interrupt() changeTime(void);
 unsigned char spi_comm(unsigned char spi_byte);
 unsigned char spi_read(void);
+
+
+//int hexToDec(char* hexInput);
+//int secondsToHour(int seconds);
+//int secondsToMinutes (int seconds);
+//int convertTimeFormat(int hour);
+//int timeFormatFlag(int hour);
 
 int flag = 0; 
 /*----------------------------------------------------------
@@ -324,7 +332,9 @@ void __interrupt() changeTime(void){
     
 }
 
-void display_time(void){
+
+
+/*void display_time(void){
     unsigned char sec, sec10;
     
     CS = 0;
@@ -336,4 +346,4 @@ void display_time(void){
     
     //need to convert seconds
     
-}
+}*/
