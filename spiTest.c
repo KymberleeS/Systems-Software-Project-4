@@ -325,8 +325,15 @@ void __interrupt() changeTime(void){
 }
 
 void display_time(void){
+    unsigned char sec, sec10;
     
+    CS = 0;
+    //set the clock to read starting at 0x00 (seconds)
+    spi_write(0x00);
+    //reads the value in the seconds register (0x00-0x59)
+    sec = spi_read();
+    CS = 1;
     
-    
+    //need to convert seconds
     
 }
