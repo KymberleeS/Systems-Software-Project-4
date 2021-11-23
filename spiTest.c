@@ -113,7 +113,7 @@ void lcd_putch(char c);
 void lcd_goto(unsigned char c);
 void spi_write(unsigned char x);
 void set_timer(void);
-void do_outputs(void);
+void display_time(void);
 void __interrupt() changeTime(void);
 unsigned char spi_comm(unsigned char spi_byte);
 unsigned char spi_read(void);
@@ -324,3 +324,9 @@ void __interrupt() changeTime(void){
     
 }
 
+void display_time(void){
+    
+    
+    
+    
+}
