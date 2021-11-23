@@ -147,9 +147,9 @@ while(1)   //infinite loop
     
     TRISBbits.RB0 = 1;      //Sets as input
     
-    INTEDG1 = 1;            //Sets INT1 to low to high
-    INT1F = 0;              //Clears INT1 Flag
-    INT1E = 1;              //Enables external interrupt
+    INTEDG0 = 0;            //Sets INT1 to High to Low
+    INT0F = 0;              //Clears INT1 Flag
+    INT0E = 1;              //Enables external interrupt
     GIE = 1;                //Enables unmasked interrupt to execute ISR
 }
 
@@ -326,9 +326,12 @@ int timeFormatFlag(int hour) {
 
 void __interrupt() changeTime(void){
     
-    if(INT1F == 1){
-        INT1F = 0;
-        lcd_putch("Hello");
+    if(INT0F == 1){
+        INT0F = 0;
+        if(PORTBbits.RB0 == 0){ //checks if button is pushed
+            lcd_puts("Hello");
+        }
+        lcd_clear();
     }
     
 }
