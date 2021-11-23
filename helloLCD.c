@@ -144,6 +144,13 @@ while(1)   //infinite loop
 	__delay_ms(500);		// Delay for 1/2 second to read display
 	__delay_ms(500);		// Delay for 1/2 second to read display
 	__delay_ms(500);		// Delay for 1/2 second to read display
+    
+    TRISBbits.RB0 = 1;      //Sets as input
+    
+    INTEDG1 = 1;            //Sets INT1 to low to high
+    INT1F = 0;              //Clears INT1 Flag
+    INT1E = 1;              //Enables external interrupt
+    GIE = 1;                //Enables unmasked interrupt to execute ISR
 }
 
 }
@@ -315,4 +322,13 @@ int timeFormatFlag(int hour) {
     }
     
     return flag;
+}
+
+void __interrupt() changeTime(void){
+    
+    if(INT1F == 1){
+        INT1F = 0;
+        lcd_putch("Hello");
+    }
+    
 }
