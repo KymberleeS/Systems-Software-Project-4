@@ -350,14 +350,21 @@ void display_seconds(void) {
     
     CS = 0;
     
+    // set clock to read at 0x00 (seconds register)
     spi_write(0x00);
+    
+    // reads value in the seconds register
     sec = spi_read();
     
     CS = 1;
     
+    // get value of upper nibble (10s place of seconds value)
     sec10 = (sec >> 4) & 0x07;
+    
+    // get value of lower nibble (1s place of seconds value)
     sec = sec & 0x0F;
     
+    // display on the LCD
     lcd_putch(":");
     lcd_putch(sec10 + 0x30);
     lcd_putch(sec + 0x30);
@@ -369,14 +376,21 @@ void display_minutes(void) {
     
     CS = 0;
     
+    // set clock to read at 0x01 (minutes register)
     spi_write(0x01);
+    
+    // reads value in the minutes register
     min = spi_read();
     
     CS = 1;
     
+    // get value of upper nibble (10s place of minutes value)
     min10 = (min >> 4) & 0x07;
+    
+    // get value of lower nibble (1s place of minutes value)
     min = min & 0x0F;
     
+    // display on the LCD
     lcd_putch(":");
     lcd_putch(min10 + 0x30);
     lcd_putch(min + 0x30);
@@ -392,4 +406,16 @@ void display_hours(void) {
     hour = spi_read();
     
     CS = 1;
+    
+    // get value of upper nibble (10s place of minutes value)
+    // 0x04 - since according to the data sheet, the 10hr format can be extracted from bit 4
+    // still shift to the left to remove the last 4 zeros
+    hour10 = (hour >> 4) & 0x04;
+    
+    // get value of lower nibble (1s place of hour value)
+    hour = hour & 0x0F;
+    
+    // display on the LCD
+    lcd_putch(hour10 + 0x30);
+    lcd_putch(hour + 0x30);
 }
