@@ -123,11 +123,6 @@ unsigned char spi_read(void);
 void display_seconds(void);
 void display_minutes(void);
 void display_hours(void);
-//int hexToDec(char* hexInput);
-//int secondsToHour(int seconds);
-//int secondsToMinutes (int seconds);
-//int convertTimeFormat(int hour);
-//int timeFormatFlag(int hour);
 
 int flag = 0; 
 /*----------------------------------------------------------
@@ -335,49 +330,6 @@ void __interrupt() changeTime(void){
     
 }
 
-// function that converts hex input to decimal
-/*int hexToDec(char* hexInput) {
-    return (int)strtol(hexInput, NULL, 16);
-}
-
-// function that converts seconds to the hour value
-int secondsToHour(int seconds) {
-    return seconds / 3600;
-}
-
-// function that converts seconds to the minute value
-int secondsToMinutes (int seconds) {
-    int remainder = seconds % 3600;
-    return remainder / 60;
-}
-
-// function that converts 24 hour format to 12 hour format
-int convertTimeFormat(int hour) {
-    if ((hour > 12) && (hour <= 23)) {
-        return hour -= 12;
-    } else if (hour == 0) {
-        return 12;
-    }
-    
-    return hour;
-}
-
-// function that determines AM or PM for the 12 hour time format
-int timeFormatFlag(int hour) {
-    int flag;
-    
-    if (hour < 12) {
-        flag = 65;
-    } else {
-        flag = 80;
-    }
-    
-    return flag;
-}*/
-
-
-
-
 /*void display_time(void){
     unsigned char sec, sec10;
     
@@ -406,6 +358,7 @@ void display_seconds(void) {
     sec10 = (sec >> 4) & 0x07;
     sec = sec & 0x0F;
     
+    lcd_putch(":");
     lcd_putch(sec10 + 0x30);
     lcd_putch(sec + 0x30);
 }
@@ -424,6 +377,7 @@ void display_minutes(void) {
     min10 = (min >> 4) & 0x07;
     min = min & 0x0F;
     
+    lcd_putch(":");
     lcd_putch(min10 + 0x30);
     lcd_putch(min + 0x30);
 }
