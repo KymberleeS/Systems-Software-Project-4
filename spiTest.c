@@ -404,7 +404,7 @@ void display_seconds(void) {
     CS = 1;
     
     sec10 = (sec >> 4) & 0x07;
-    sec = (sec << 4) & 0x0F;
+    sec = sec & 0x0F;
     
     lcd_putch(sec10 + 0x30);
     lcd_putch(sec + 0x30);
@@ -419,8 +419,13 @@ void display_minutes(void) {
     spi_write(0x01);
     min = spi_read();
     
-    
     CS = 1;
+    
+    min10 = (min >> 4) & 0x07;
+    min = min & 0x0F;
+    
+    lcd_putch(min10 + 0x30);
+    lcd_putch(min + 0x30);
 }
 
 void display_hours(void) {
