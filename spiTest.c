@@ -344,6 +344,7 @@ void __interrupt() changeTime(void){
     
 }*/
 
+// function to display seconds
 void display_seconds(void) {
     unsigned char sec;
     unsigned char sec10;
@@ -370,6 +371,7 @@ void display_seconds(void) {
     lcd_putch(sec + 0x30);
 }
 
+// function to display minutes
 void display_minutes(void) {
     unsigned char min;
     unsigned char min10;
@@ -396,6 +398,7 @@ void display_minutes(void) {
     lcd_putch(min + 0x30);
 }
 
+// function to display hours (doesn't currently check for 12/24 format according to bit 6)
 void display_hours(void) {
     unsigned char hour;
     unsigned char hour10;
@@ -408,7 +411,7 @@ void display_hours(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of minutes value)
-    // 0x04 - since according to the data sheet, the 10hr format can be extracted from bit 4
+    // 0x04 - since according to the data sheet, 10hr can be extracted from bit 4
     // still shift to the left to remove the last 4 zeros
     hour10 = (hour >> 4) & 0x04;
     
