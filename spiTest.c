@@ -366,7 +366,6 @@ void display_seconds(void) {
     sec = sec & 0x0F;
     
     // display on the LCD
-    lcd_putch(":");
     lcd_putch(sec10 + 0x30);
     lcd_putch(sec + 0x30);
 }
@@ -393,7 +392,6 @@ void display_minutes(void) {
     min = min & 0x0F;
     
     // display on the LCD
-    lcd_putch(":");
     lcd_putch(min10 + 0x30);
     lcd_putch(min + 0x30);
 }
