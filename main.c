@@ -449,7 +449,7 @@ void change_mode(void){
     CS = 0;
     spi_write(0x02);
     hour_data = spi_read();
-    clock_mode = hour_date >> 6;
+    clock_mode = hour_data >> 6;
     if(clock_mode){
         //12hr mode
     }
