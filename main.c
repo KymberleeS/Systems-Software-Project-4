@@ -1,6 +1,6 @@
 
 /********************************************************************
- FileName:     	helloLCD.c
+ FileName:     	main.c
  Dependencies:	See INCLUDES section
  Processor:		PIC18F2580 Microcontrollers
  Compiler:		XC8
@@ -18,6 +18,7 @@
 ********************************************************************/
 
 #include <xc.h>
+#include <stdlib.h>
 
 // PIC18F2580 Configuration Bit Settings
 // Configuration bits are stored in SFR configuration bytes
@@ -89,17 +90,13 @@ compiler needs to know what the speed is that the MCU is running at. See
 
 #define number 0x30     //Offset in ASCII table to get to where numbers start
 
-//#define	LCD_RS LATAbits.LA6      // LCD Register Select.
-//#define LCD_EN LATAbits.LA7     // LCD Enable.
-//#define LCD_DATA LATC  			// RC0-RC3 data to LCD in 4-bit mode. RC4-RC7 not used.
 #define LCD_RS LATCbits.LC0
 #define LCD_EN LATCbits.LC1
 #define CS LATCbits.LC2
 #define LCD_DATA LATA 
-
 #define	LCD_STROBE()    ((LCD_EN = 1),(LCD_EN=0))  //C macro substitution with arguements
                         // LCD strobe sends a quick pulse to the LCD enable.
-                        // The sequence sets LA7 and then clears LA7.
+                        // The sequence sets LC1 and then clears LC1.
                         // The pulse will last 4 clock cycles at 1MHz so
                         // 4usecs. See GDM1602K datasheet for enable write time.
                         // Minimum pulse time is 500ns.
@@ -113,12 +110,18 @@ void lcd_putch(char c);
 void lcd_goto(unsigned char c);
 void spi_write(unsigned char x);
 void set_timer(void);
-void do_outputs(void);
+void display_time(void);
 void __interrupt() changeTime(void);
 unsigned char spi_comm(unsigned char spi_byte);
 unsigned char spi_read(void);
-
-int flag = 0; 
+void display_seconds(void);
+void display_minutes(void);
+void display_hours(void); 
+void display_AMPM(void);
+void change_mode(void);
+//global flag
+unsigned char flagAP;
+unsigned char flag12hr;
 /*----------------------------------------------------------
 	Subroutine: main
 -----------------------------------------------------------*/
@@ -126,7 +129,7 @@ int flag = 0;
 void main(void){
 Initialize(); //Initialize subroutine runs only once
 while(1){ //infinite loop
-    set_timer();
+    display_time();
 }
 
 }
@@ -148,14 +151,12 @@ void Initialize(void){
     TRISCbits.RC2 = 0;
     
     TRISA = 0;
-    //PORTCbits.RC2 = 1;
                   //We will use the LCD in 4 bit mode, instead of 8 bit mode.
                   //This will save us 4 i/o pins
                   //See page 46 (Figure 24) of the Hitachi datasheet to
                   //understand the required steps to initialize 4 bit mode
     
 	char init_value;        //variable to use for initializing
-
 
     LCD_RS = 0;             //LCD control pin set to low
 	LCD_EN = 0;             //LCD control pin set to low
@@ -300,7 +301,6 @@ unsigned char spi_comm(unsigned char spi_byte){
 }
 
 void set_timer(void){
-    if(!flag){
         CS = 0;
         spi_write(0x80);        //address & write enable
         spi_write(0x00);        //set seconds
@@ -313,31 +313,14 @@ void set_timer(void){
         spi_write(0x21);        //set year
         spi_write(0x40);        //enable osc, enable sqw
         spi_write(0x00);
-        CS = 1;
-        flag = 1;
-    }
-    
+        CS = 1; 
 }
-int TFhr = 0;
+
 void __interrupt() changeTime(void){
     
     if(INT0F == 1){
         INT0F = 0;
-        /*lcd_puts("Hello"); 
-        __delay_ms(500);		// Delay for 1/2 second to read display
-        lcd_clear();*/
-        if(TFhr == 1){
-            TFhr = 0;
-            lcd_puts("Switching to 12 HR");
-            __delay_ms(500);
-            lcd_clear();
-        }
-        else{
-            TFhr = 1;
-            lcd_puts("Switching to 24 HR");
-            __delay_ms(500);
-            lcd_clear();
-        }
+        change_mode();
     }
     
     if(INT1F == 1){
@@ -347,7 +330,146 @@ void __interrupt() changeTime(void){
         lcd_puts("Initial Time Set!");
         __delay_ms(1000);
         lcd_clear();
+        set_timer();
     }
     
 }
 
+void display_time(void){
+    lcd_goto(0x00);
+    display_hours();
+    lcd_putch(':');
+    display_minutes();
+    lcd_putch(':');
+    display_seconds();
+    display_AMPM();
+}
+
+// function to display seconds
+void display_seconds(void) {
+    unsigned char sec;
+    unsigned char sec10;
+    
+    CS = 0;
+    
+    // set clock to read at 0x00 (seconds register)
+    spi_write(0x00);
+    
+    // reads value in the seconds register
+    sec = spi_read();
+    
+    CS = 1;
+    
+    // get value of upper nibble (10s place of seconds value)
+    sec10 = (sec >> 4) & 0x07;
+    
+    // get value of lower nibble (1s place of seconds value)
+    sec = sec & 0x0F;
+    
+    // display on the LCD
+    lcd_putch(sec10 + number);
+    lcd_putch(sec + number);
+}
+
+// function to display minutes
+void display_minutes(void) {
+    unsigned char min;
+    unsigned char min10;
+    
+    CS = 0;
+    
+    // set clock to read at 0x01 (minutes register)
+    spi_write(0x01);
+    
+    // reads value in the minutes register
+    min = spi_read();
+    
+    CS = 1;
+    
+    // get value of upper nibble (10s place of minutes value)
+    min10 = (min >> 4) & 0x07;
+    
+    // get value of lower nibble (1s place of minutes value)
+    min = min & 0x0F;
+    
+    // display on the LCD
+    lcd_putch(min10 + number);
+    lcd_putch(min + number);
+}
+
+// function to display hours (doesn't currently check for 12/24 format according to bit 6)
+void display_hours(void) {
+    unsigned char hour;
+    unsigned char hour10;
+    unsigned char bit6;
+    unsigned char bit5;
+
+    CS = 0;
+    
+    spi_write(0x02);
+    hour = spi_read();
+    
+    CS = 1;
+    
+    bit6 = hour >> 6;
+    
+    if(bit6){
+        //12 hr mode
+        flag12hr = 0x01;
+        // get value of upper nibble (10s place of minutes value)
+        // 0x04 - since according to the data sheet, 10hr can be extracted from bit 4
+        // still shift to the left to remove the last 4 zeros
+        hour10 = (hour >> 4) & 0x04;
+        bit5 = (hour >> 5) & 0x01;
+        flagAP = bit5;  //set flag for use in other functions
+        // get value of lower nibble (1s place of hour value)
+        hour = hour & 0x0F;
+        
+        // display on the LCD
+        lcd_putch(hour10 + number);
+        lcd_putch(hour + number);
+    }
+    else{
+        //24hr mode
+        flag12hr = 0x00;
+        bit5 = (hour >> 5) & 0x01;
+        if(!bit5){
+            //20 hr not set get hour10 & hr
+            hour10 = (hour >> 4) & 0x04;
+            hour = hour & 0x0F;
+            lcd_putch(hour10 + number);
+            lcd_putch(hour + number);
+        }
+        else{
+            hour = hour & 0x0F;
+            lcd_putch(bit5 + number + 0x01); //value is just of 1, need to add 1 so that it display 2 for when time is in the 20hrs
+            lcd_putch(hour + number);
+        }
+    }
+}
+
+void display_AMPM(void){
+    if(flag12hr){
+        if(flagAP){
+            lcd_puts("PM");
+        }
+        else{
+            lcd_puts("AM");
+        }
+    }
+}
+
+void change_mode(void){
+    unsigned char hour_data;
+    unsigned char clock_mode;
+    CS = 0;
+    spi_write(0x02);
+    hour_data = spi_read();
+    clock_mode = hour_data >> 6;
+    if(clock_mode){
+        //12hr mode
+    }
+    else{
+        //24hr mode
+    }
+}
