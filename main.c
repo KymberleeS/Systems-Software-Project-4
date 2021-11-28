@@ -205,9 +205,15 @@ void Initialize(void){
      
      /***CONFIG INTERRUPTS***/
     TRISBbits.RB0 = 1;      //Sets as input
-    INTEDG0 = 1;            //Sets INT1 to low to high
-    INT0F = 0;              //Clears INT1 Flag
+    INTEDG0 = 1;            //Sets INT0 to high to low
+    INT0F = 0;              //Clears INT0 Flag
     INT0E = 1;              //Enables external interrupt
+    GIE = 1;                //Enables unmasked interrupt to execute ISR
+    
+    TRISBbits.RB1 = 1;      //Sets as input
+    INTEDG1 = 1;            //Sets INT1 to high to low
+    INT1F = 0;              //Clears INT1 Flag
+    INT1E = 1;              //Enables external interrupt
     GIE = 1;                //Enables unmasked interrupt to execute ISR
 }
 void lcd_write(unsigned char c)   //write a byte to the LCD in 4 bit mode
@@ -298,23 +304,33 @@ void set_timer(void){
         CS = 0;
         spi_write(0x80);        //address & write enable
         spi_write(0x00);        //set seconds
-        spi_write(0x50);        //set minutes;
-        spi_write(0x19);        //set 24 hour time & hours
+        spi_write(0x20);        //set minutes;
+        spi_write(0x14);        //set 24 hour time & hours //0b0110 0010
                                 //range 00-23
-        spi_write(0x01);        //set day
+        /*spi_write(0x01);        //set day
         spi_write(0x21);        //set date, range 01-31
         spi_write(0x11);        //set century/month
         spi_write(0x21);        //set year
         spi_write(0x40);        //enable osc, enable sqw
-        spi_write(0x00);
-        CS = 1; 
+        spi_write(0x00);*/
+        CS = 1;
 }
 
 void __interrupt() changeTime(void){
     
     if(INT0F == 1){
         INT0F = 0;
+        //if(PORT)
+        change_mode();
+    }
+    
+    if(INT1F == 1){
+        INT1F = 0;
         set_timer();
+        lcd_goto(0x40);
+        lcd_puts("Initial Time Set!");
+        __delay_ms(1000);
+        lcd_clear();
     }
     
 }
@@ -345,14 +361,16 @@ void display_seconds(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of seconds value)
-    sec10 = (sec >> 4) & 0x07;
-    
+    //sec10 = (sec >> 4) & 0x07;
+    sec10 = (sec >> 4);
     // get value of lower nibble (1s place of seconds value)
-    sec = sec & 0x0F;
+    sec = sec & 0x0f;
     
     // display on the LCD
-    lcd_putch(sec10 + number);
-    lcd_putch(sec + number);
+    //lcd_putch(sec10 + number);
+    //lcd_putch(sec + number);
+    lcd_putch(sec10 + 0x30);
+    lcd_putch(sec + 0x30);
 }
 
 // function to display minutes
@@ -400,14 +418,14 @@ void display_hours(void) {
     if(bit6){
         //12 hr mode
         flag12hr = 0x01;
-        // get value of upper nibble (10s place of minutes value)
+        // get value of upper nibble (10s place of hours value)
         // 0x04 - since according to the data sheet, 10hr can be extracted from bit 4
         // still shift to the left to remove the last 4 zeros
-        hour10 = (hour >> 4) & 0x04;
+        hour10 = (hour >> 4) & 0x01;
         bit5 = (hour >> 5) & 0x01;
         flagAP = bit5;  //set flag for use in other functions
         // get value of lower nibble (1s place of hour value)
-        hour = hour & 0x0F;
+        hour = hour & 0x0f;
         
         // display on the LCD
         lcd_putch(hour10 + number);
@@ -417,15 +435,15 @@ void display_hours(void) {
         //24hr mode
         flag12hr = 0x00;
         bit5 = (hour >> 5) & 0x01;
-        if(!bit5){
+        if(bit5 == 0x00){
             //20 hr not set get hour10 & hr
-            hour10 = (hour >> 4) & 0x04;
-            hour = hour & 0x0F;
+            hour10 = (hour >> 4) & 0x01;
+            hour = hour & 0x0f;
             lcd_putch(hour10 + number);
             lcd_putch(hour + number);
         }
         else{
-            hour = hour & 0x0F;
+            hour = hour & 0x0f;
             lcd_putch(bit5 + number + 0x01); //value is just of 1, need to add 1 so that it display 2 for when time is in the 20hrs
             lcd_putch(hour + number);
         }
@@ -446,14 +464,72 @@ void display_AMPM(void){
 void change_mode(void){
     unsigned char hour_data;
     unsigned char clock_mode;
+    unsigned char bit5;
+    unsigned char bit4;
+    unsigned char bits;
+    unsigned char hours_count = 0x00;
+    unsigned char write_data  = 0x00;
+
     CS = 0;
     spi_write(0x02);
     hour_data = spi_read();
+    CS = 1;
+    
     clock_mode = hour_data >> 6;
-    if(clock_mode){
-        //12hr mode
+    if(clock_mode){                             //checks to see if clock is in 12hr mode; convert 12 to 24 hr mode
+        static const unsigned char lookup_12hr[24] = { //00-23
+            0b00000000, 0b00000001, 0b00000010, 0b00000011, 0b00000100, 0b00000101,
+            0b00000110, 0b00000111, 0b00001000, 0b00001001, 0b00010000, 0b00010001,
+            0b00010010, 0b00010011, 0b00010100, 0b00010101, 0b00010110, 0b00010111,
+            0b00011000, 0b00011001, 0b00100000, 0b00100001, 0b00100010, 0b00100011
+        };
+        hours_count += hour_data & 0x0F;        //get ones place of hours, maximum of 9
+        hours_count += (hour_data >> 4) * 0x0A; //get tens place, multiply ten and then sum
+        bit5 = (hour_data >> 5) & 0x01;         //isolate AM/PM bit
+        
+        if(bit5){                               //if PM then shift by 12 hrs unless current hour is noon
+            if(hours_count != 0x0C){
+                hours_count += 0x0C;
+            }
+        }
+        else{                                   //if AM then check to see if 12 am, if so subtract 12
+            if(hours_count == 0x0C){
+                hours_count -= 0x0C;
+            }
+        }
+
+        //with total number of hours we must now construct the byte to be written to the RTC
+        if(hours_count < 0x14){                 //if less than 20 hours
+            if(hours_count < 0x0A){             //if less than 10 hours
+                write_data = hours_count;
+            }
+            else{                               //else 10 hr bit is set
+                write_data = 0x10 + hours_count;
+            }
+        }
+        else{                                   //else 20 hr bit is set
+            write_data = 0x20 + (hours_count - 0x14); //subtract 20 from hours_count to get ones place and then add 0x20 to the total to flip 20hr bit and store hours place
+        }
+
+        //write_data should now be in the form 0b00XX XXXX where X is either a 1 or 0
     }
-    else{
-        //24hr mode
+    else{                                       //clock is in 24hr mode; convert 24 to 12 hr mode
+        static const unsigned char lookup_24hr[24] = { //00-23 ; 12am-11pm
+            0b01010010, 0b01000001, 0b01000010, 0b01000011, 0b01000100, 0b01000101, //12am-5am 
+            0b01000110, 0b01000111, 0b01001000, 0b01001001, 0b01010000, 0b01010001, //6am-11am
+            0b01110010, 0b01100001, 0b01100010, 0b01100011, 0b01100100, 0b01100101, //12pm-5pm
+            0b01100110, 0b01100111, 0b01101000, 0b01101001, 0b01110000, 0b01110001, //6pm-11pm
+        };
+        
+        hours_count += hour_data & 0x0F;        //get ones place of hours, maximum of 9
+        hours_count += (hour_data >> 4) * 0x0A; //get tens place, multiply by ten and then sum
+        hours_count += (hour_data >> 5) * 0x14; //get 20 hr bit, multiply by twenty and then sum
+
+        write_data = lookup_24hr[hours_count];
     }
+
+    CS = 0;                                     //select RTC
+    spi_write(0x82);                            //Give it the write command to the hr register
+    spi_write(write_data);                      //write modified configuration
+    CS = 1;                                     //deselect RTC
 }
