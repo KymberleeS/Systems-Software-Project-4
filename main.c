@@ -120,8 +120,8 @@ void display_hours(void);
 void display_AMPM(void);
 void change_mode(void);
 //global flag
-unsigned char flagAP;
-unsigned char flag12hr;
+unsigned char flagAP = 0x00;
+unsigned char flag12hr = 0x00;
 unsigned char config_now = 0x00;
 unsigned char change_now = 0x00;
 /*----------------------------------------------------------
@@ -309,8 +309,8 @@ void set_timer(void){
         CS = 0;
         spi_write(0x80);        //address & write enable
         spi_write(0x00);        //set seconds
-        spi_write(0x20);        //set minutes;
-        spi_write(0x14);        //set 24 hour time & hours //0b0110 0010
+        spi_write(0x30);        //set minutes;
+        spi_write(0x52);        //set 24 hour time & hours //0b0110 0100
                                 //range 00-23
         /*spi_write(0x01);        //set day
         spi_write(0x21);        //set date, range 01-31
@@ -326,12 +326,12 @@ void set_timer(void){
 void __interrupt() changeTime(void){
     if(INT0F == 1){
         INT0F = 0;
-        if(PORTBbits.RB0 == 0){
-           __delay_ms(1);
-           if(PORTBbits.RB0 == 0){
+        //if(PORTBbits.RB0 == 0){
+          // __delay_ms(1);
+          // if(PORTBbits.RB0 == 0){
                change_now = 0x01;
-           }
-       }
+           //}
+       //}
         
     }
     
@@ -339,12 +339,12 @@ void __interrupt() changeTime(void){
         INT1F = 0;
         //use if conditions to make sure button is still being held down to
         //handle de-bounce issue
-       if(PORTBbits.RB1 == 0){
-           __delay_ms(1);
-           if(PORTBbits.RB1 == 0){
+      // if(PORTBbits.RB1 == 0){
+          // __delay_ms(1);
+           //if(PORTBbits.RB1 == 0){
                 config_now = 0x01;
-           }
-       }
+           //}
+       //}
     }
     
 }
@@ -400,7 +400,6 @@ void display_minutes(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of minutes value)
-
     min10 = min >> 4; //0b0000 0111 // 0010
     
     // get value of lower nibble (1s place of minutes value)
@@ -437,7 +436,7 @@ void display_hours(void) {
         bit5 = (hour >> 5) & 0x01;
         flagAP = bit5;  //set flag for use in other functions
         // get value of lower nibble (1s place of hour value)
-        hour = hour & 0x0f;
+        hour = hour & 0x0F;
         
         // display on the LCD
         lcd_putch(hour10 + number);
@@ -446,16 +445,17 @@ void display_hours(void) {
     else{
         //24hr mode
         flag12hr = 0x00;
+        flagAP = 0x00;
         bit5 = (hour >> 5) & 0x01;
         if(bit5 == 0x00){
             //20 hr not set get hour10 & hr
             hour10 = (hour >> 4) & 0x01;
-            hour = hour & 0x0f;
+            hour = hour & 0x0F;
             lcd_putch(hour10 + number);
             lcd_putch(hour + number);
         }
         else{
-            hour = hour & 0x0f;
+            hour = hour & 0x0F;
             lcd_putch(bit5 + number + 0x01); //value is just of 1, need to add 1 so that it display 2 for when time is in the 20hrs
             lcd_putch(hour + number);
         }
@@ -479,12 +479,10 @@ void display_AMPM(void){
 
 void change_mode(void){
     if(change_now == 0x01){
-        change_now == 0x00;
+        change_now = 0x00;
         unsigned char hour_data;
         unsigned char clock_mode;
         unsigned char bit5;
-        unsigned char bit4;
-        unsigned char bits;
         unsigned char hours_count = 0x00;
         unsigned char write_data  = 0x00;
 
@@ -494,18 +492,26 @@ void change_mode(void){
         CS = 1;
 
         clock_mode = hour_data >> 6;
-        if(clock_mode){                             //checks to see if clock is in 12hr mode; convert 12 to 24 hr mode
-            enum time_12hr{0b01010010 };
-            
-            static const unsigned char lookup_12hr[24] = { //00-23
-                0b00000000, 0b00000001, 0b00000010, 0b00000011, 0b00000100, 0b00000101,
-                0b00000110, 0b00000111, 0b00001000, 0b00001001, 0b00010000, 0b00010001,
-                0b00010010, 0b00010011, 0b00010100, 0b00010101, 0b00010110, 0b00010111,
-                0b00011000, 0b00011001, 0b00100000, 0b00100001, 0b00100010, 0b00100011
-            };
-            
-            write_data = lookup_12hr[23];
-            
+        if(clock_mode){ 
+            hours_count += hour_data & 0x0F;
+            hours_count += ((hour_data >> 4) & 0x01) * 0x0A;
+            bit5 = (hour_data >> 5) & 0x01;
+            if(bit5){
+              if(hours_count != 0x0C){
+                  hours_count += 0x0C;
+              }
+            }
+            if(hours_count < 0x14){
+                if(hours_count > 0x09){
+                    hours_count -= 0x0A;
+                    write_data += 0x10;
+                }
+            }
+            else{
+                hours_count -= 0x14;
+                write_data = 0x20;
+            }
+            write_data += hours_count & 0x0F;
         }
         else{                                       //clock is in 24hr mode; convert 24 to 12 hr mode
             static const unsigned char lookup_24hr[24] = { //00-23 ; 12am-11pm
