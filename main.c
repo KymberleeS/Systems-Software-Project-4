@@ -387,7 +387,7 @@ void display_minutes(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of minutes value)
-    min10 = (min >> 4) & 0x07;
+    min10 = (min >> 4);
     
     // get value of lower nibble (1s place of minutes value)
     min = min & 0x0F;
@@ -476,7 +476,9 @@ void change_mode(void){
         bit5 = (hour_data >> 5) & 0x05;
         if(bit5){
             //if PM add 12 hours
-            hourscount += 12;
+            if(hour_data != 0b01110010){
+                hourscount += 12;
+            }
         }
         bit4 = (hour_data >> 4) & 0x04;
         if(bit4){
