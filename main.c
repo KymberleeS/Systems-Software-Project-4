@@ -473,21 +473,21 @@ void change_mode(void){
     clock_mode = hour_data >> 6;
     if(clock_mode){
         //12 to 24 hr mode
-        bit5 = (hour_data >> 5) & 0x05;
+        bit5 = (hour_data >> 5) & 0x01;
         if(bit5){
             //if PM add 12 hours
             if(hour_data != 0b01110010){
                 hourscount += 12;
             }
         }
-        bit4 = (hour_data >> 4) & 0x04;
+        bit4 = (hour_data >> 4) & 0x01;
         if(bit4){
             //if 10 hours add 10 hours
             hourscount += 10;
         }
         //check bits 3 -> 0
         for(int i = 3; i >= 0; i--){
-            bits = (hour_data >> i) & i;
+            bits = (hour_data >> i) & 0x01;
             switch(bits){
                 case 1:
                     hourscount += pow(2, i);
