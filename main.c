@@ -19,6 +19,7 @@
 
 #include <xc.h>
 #include <stdlib.h>
+#include <math.h>
 
 // PIC18F2580 Configuration Bit Settings
 // Configuration bits are stored in SFR configuration bytes
@@ -330,7 +331,6 @@ void __interrupt() changeTime(void){
         lcd_puts("Initial Time Set!");
         __delay_ms(1000);
         lcd_clear();
-        set_timer();
     }
     
 }
@@ -416,7 +416,7 @@ void display_hours(void) {
     if(bit6){
         //12 hr mode
         flag12hr = 0x01;
-        // get value of upper nibble (10s place of minutes value)
+        // get value of upper nibble (10s place of hours value)
         // 0x04 - since according to the data sheet, 10hr can be extracted from bit 4
         // still shift to the left to remove the last 4 zeros
         hour10 = (hour >> 4) & 0x04;
@@ -462,12 +462,41 @@ void display_AMPM(void){
 void change_mode(void){
     unsigned char hour_data;
     unsigned char clock_mode;
+    unsigned char bit5;
+    unsigned char bit4;
+    unsigned char bits;
+    unsigned char hourscount;
     CS = 0;
     spi_write(0x02);
     hour_data = spi_read();
+    CS = 1;
     clock_mode = hour_data >> 6;
     if(clock_mode){
-        //12hr mode
+        //12 to 24 hr mode
+        bit5 = (hour_data >> 5) & 0x05;
+        if(bit5){
+            //if PM add 12 hours
+            hourscount += 12;
+        }
+        bit4 = (hour_data >> 4) & 0x04;
+        if(bit4){
+            //if 10 hours add 10 hours
+            hourscount += 10;
+        }
+        //check bits 3 -> 0
+        for(int i = 3; i >= 0; i--){
+            bits = (hour_data >> i) & i;
+            switch(bits){
+                case 1:
+                    hourscount += pow(2, i);
+                    break;
+                default: break;
+            }
+        }
+        CS = 0;
+        spi_write(0x82);
+        spi_write(hourscount);
+        CS = 1;
     }
     else{
         //24hr mode
