@@ -369,8 +369,8 @@ void display_seconds(void) {
     // display on the LCD
     //lcd_putch(sec10 + number);
     //lcd_putch(sec + number);
-    lcd_putch(sec10 + 0x30);
-    lcd_putch(sec + 0x30);
+    lcd_putch(sec10 + number);
+    lcd_putch(sec + number);
 }
 
 // function to display minutes
@@ -389,7 +389,7 @@ void display_minutes(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of minutes value)
-    min10 = (min >> 4) & 0x07;
+    min10 = min >> 4;
     
     // get value of lower nibble (1s place of minutes value)
     min = min & 0x0F;
@@ -458,6 +458,10 @@ void display_AMPM(void){
         else{
             lcd_puts("AM");
         }
+    }
+    else{
+        lcd_putch(0x20);
+        lcd_putch(0x20);
     }
 }
 
