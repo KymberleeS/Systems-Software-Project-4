@@ -20,7 +20,6 @@
 #include <xc.h>
 #include <stdlib.h>
 #include <math.h>
-
 // PIC18F2580 Configuration Bit Settings
 // Configuration bits are stored in SFR configuration bytes
 
@@ -121,8 +120,10 @@ void display_hours(void);
 void display_AMPM(void);
 void change_mode(void);
 //global flag
-unsigned char flagAP;
-unsigned char flag12hr;
+unsigned char flagAP = 0x00;
+unsigned char flag12hr = 0x00;
+unsigned char config_now = 0x00;
+unsigned char change_now = 0x00;
 /*----------------------------------------------------------
 	Subroutine: main
 -----------------------------------------------------------*/
@@ -130,6 +131,8 @@ unsigned char flag12hr;
 void main(void){
 Initialize(); //Initialize subroutine runs only once
 while(1){ //infinite loop
+    set_timer();
+    change_mode();
     display_time();
 }
 
@@ -302,35 +305,46 @@ unsigned char spi_comm(unsigned char spi_byte){
 }
 
 void set_timer(void){
+    if(config_now == 0x01){
         CS = 0;
         spi_write(0x80);        //address & write enable
         spi_write(0x00);        //set seconds
-        spi_write(0x50);        //set minutes;
-        spi_write(0x19);        //set 24 hour time & hours
+        spi_write(0x30);        //set minutes;
+        spi_write(0x52);        //set 24 hour time & hours //0b0110 0100
                                 //range 00-23
-        spi_write(0x01);        //set day
+        /*spi_write(0x01);        //set day
         spi_write(0x21);        //set date, range 01-31
         spi_write(0x11);        //set century/month
         spi_write(0x21);        //set year
         spi_write(0x40);        //enable osc, enable sqw
-        spi_write(0x00);
-        CS = 1; 
+        spi_write(0x00);*/
+        CS = 1;
+        config_now = 0x00;
+    }
 }
 
 void __interrupt() changeTime(void){
-    
     if(INT0F == 1){
         INT0F = 0;
-        change_mode();
+        //if(PORTBbits.RB0 == 0){
+          // __delay_ms(1);
+          // if(PORTBbits.RB0 == 0){
+               change_now = 0x01;
+           //}
+       //}
+        
     }
     
     if(INT1F == 1){
         INT1F = 0;
-        set_timer();
-        lcd_goto(0x40);
-        lcd_puts("Initial Time Set!");
-        __delay_ms(1000);
-        lcd_clear();
+        //use if conditions to make sure button is still being held down to
+        //handle de-bounce issue
+      // if(PORTBbits.RB1 == 0){
+          // __delay_ms(1);
+           //if(PORTBbits.RB1 == 0){
+                config_now = 0x01;
+           //}
+       //}
     }
     
 }
@@ -361,8 +375,7 @@ void display_seconds(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of seconds value)
-    sec10 = (sec >> 4) & 0x07;
-    
+    sec10 = (sec >> 4);
     // get value of lower nibble (1s place of seconds value)
     sec = sec & 0x0F;
     
@@ -387,7 +400,7 @@ void display_minutes(void) {
     CS = 1;
     
     // get value of upper nibble (10s place of minutes value)
-    min10 = (min >> 4);
+    min10 = min >> 4; //0b0000 0111 // 0010
     
     // get value of lower nibble (1s place of minutes value)
     min = min & 0x0F;
@@ -419,7 +432,7 @@ void display_hours(void) {
         // get value of upper nibble (10s place of hours value)
         // 0x04 - since according to the data sheet, 10hr can be extracted from bit 4
         // still shift to the left to remove the last 4 zeros
-        hour10 = (hour >> 4) & 0x04;
+        hour10 = (hour >> 4) & 0x01;
         bit5 = (hour >> 5) & 0x01;
         flagAP = bit5;  //set flag for use in other functions
         // get value of lower nibble (1s place of hour value)
@@ -432,10 +445,11 @@ void display_hours(void) {
     else{
         //24hr mode
         flag12hr = 0x00;
+        flagAP = 0x00;
         bit5 = (hour >> 5) & 0x01;
-        if(!bit5){
+        if(bit5 == 0x00){
             //20 hr not set get hour10 & hr
-            hour10 = (hour >> 4) & 0x04;
+            hour10 = (hour >> 4) & 0x01;
             hour = hour & 0x0F;
             lcd_putch(hour10 + number);
             lcd_putch(hour + number);
@@ -457,50 +471,66 @@ void display_AMPM(void){
             lcd_puts("AM");
         }
     }
+    else{
+        lcd_putch(0x20);
+        lcd_putch(0x20);
+    }
 }
 
 void change_mode(void){
-    unsigned char hour_data;
-    unsigned char clock_mode;
-    unsigned char bit5;
-    unsigned char bit4;
-    unsigned char bits;
-    unsigned char hourscount;
-    CS = 0;
-    spi_write(0x02);
-    hour_data = spi_read();
-    CS = 1;
-    clock_mode = hour_data >> 6;
-    if(clock_mode){
-        //12 to 24 hr mode
-        bit5 = (hour_data >> 5) & 0x01;
-        if(bit5){
-            //if PM add 12 hours
-            if(hour_data != 0b01110010){
-                hourscount += 12;
-            }
-        }
-        bit4 = (hour_data >> 4) & 0x01;
-        if(bit4){
-            //if 10 hours add 10 hours
-            hourscount += 10;
-        }
-        //check bits 3 -> 0
-        for(int i = 3; i >= 0; i--){
-            bits = (hour_data >> i) & 0x01;
-            switch(bits){
-                case 1:
-                    hourscount += pow(2, i);
-                    break;
-                default: break;
-            }
-        }
+    if(change_now == 0x01){
+        change_now = 0x00;
+        unsigned char hour_data;
+        unsigned char clock_mode;
+        unsigned char bit5;
+        unsigned char hours_count = 0x00;
+        unsigned char write_data  = 0x00;
+
         CS = 0;
-        spi_write(0x82);
-        spi_write(hourscount);
+        spi_write(0x02);
+        hour_data = spi_read();
         CS = 1;
-    }
-    else{
-        //24hr mode
+
+        clock_mode = hour_data >> 6;
+        if(clock_mode){ 
+            hours_count += hour_data & 0x0F;
+            hours_count += ((hour_data >> 4) & 0x01) * 0x0A;
+            bit5 = (hour_data >> 5) & 0x01;
+            if(bit5){
+              if(hours_count != 0x0C){
+                  hours_count += 0x0C;
+              }
+            }
+            if(hours_count < 0x14){
+                if(hours_count > 0x09){
+                    hours_count -= 0x0A;
+                    write_data += 0x10;
+                }
+            }
+            else{
+                hours_count -= 0x14;
+                write_data = 0x20;
+            }
+            write_data += hours_count & 0x0F;
+        }
+        else{                                       //clock is in 24hr mode; convert 24 to 12 hr mode
+            static const unsigned char lookup_24hr[24] = { //00-23 ; 12am-11pm
+                0b01010010, 0b01000001, 0b01000010, 0b01000011, 0b01000100, 0b01000101, //12am-5am 
+                0b01000110, 0b01000111, 0b01001000, 0b01001001, 0b01010000, 0b01010001, //6am-11am
+                0b01110010, 0b01100001, 0b01100010, 0b01100011, 0b01100100, 0b01100101, //12pm-5pm
+                0b01100110, 0b01100111, 0b01101000, 0b01101001, 0b01110000, 0b01110001 //6pm-11pm
+            };
+
+            hours_count += hour_data & 0x0F;        //get ones place of hours, maximum of 9
+            hours_count += (hour_data >> 4) * 0x0A; //get tens place, multiply by ten and then sum
+            hours_count += (hour_data >> 5) * 0x14; //get 20 hr bit, multiply by twenty and then sum
+
+            write_data = lookup_24hr[hours_count];
+        }
+
+        CS = 0;                                     //select RTC
+        spi_write(0x82);                            //Give it the write command to the hr register
+        spi_write(write_data);                      //write modified configuration
+        CS = 1;                                     //deselect RTC
     }
 }
