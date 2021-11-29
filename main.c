@@ -1,4 +1,3 @@
-
 /********************************************************************
  FileName:     	main.c
  Dependencies:	See INCLUDES section
@@ -14,7 +13,7 @@
  interface. The interface is controlled with an HD44780 compatible controller.
  The Sparkfun website includes the board datasheet: GDM1602K. The board datasheet
  mentions the use of the KS0066U controller which is equivalent to the HD44780.
- 
+
 ********************************************************************/
 
 #include <xc.h>
@@ -93,7 +92,7 @@ compiler needs to know what the speed is that the MCU is running at. See
 #define LCD_RS LATCbits.LC0
 #define LCD_EN LATCbits.LC1
 #define CS LATCbits.LC2
-#define LCD_DATA LATA 
+#define LCD_DATA LATA
 #define	LCD_STROBE()    ((LCD_EN = 1),(LCD_EN=0))  //C macro substitution with arguements
                         // LCD strobe sends a quick pulse to the LCD enable.
                         // The sequence sets LC1 and then clears LC1.
@@ -116,7 +115,7 @@ unsigned char spi_comm(unsigned char spi_byte);
 unsigned char spi_read(void);
 void display_seconds(void);
 void display_minutes(void);
-void display_hours(void); 
+void display_hours(void);
 void display_AMPM(void);
 void change_mode(void);
 //global flag
@@ -153,13 +152,13 @@ void Initialize(void){
     TRISCbits.RC3 = 0;
     //chip select output
     TRISCbits.RC2 = 0;
-    
+
     TRISA = 0;
                   //We will use the LCD in 4 bit mode, instead of 8 bit mode.
                   //This will save us 4 i/o pins
                   //See page 46 (Figure 24) of the Hitachi datasheet to
                   //understand the required steps to initialize 4 bit mode
-    
+
 	char init_value;        //variable to use for initializing
 
     LCD_RS = 0;             //LCD control pin set to low
@@ -175,7 +174,7 @@ void Initialize(void){
 	__delay_ms(10);              //At least 4.1ms delay. See pg 46
 	LCD_STROBE();           //Burst the Enable line again to write the data
 	__delay_ms(10);              //At least 4.1ms delay. See pg 46
-    
+
 	LCD_DATA = 0x02;	        // Function Set = Four bit mode
 	LCD_STROBE();           //Burst the Enable to write the 4 bit mode cmd
                                 //From now on all writes must be done using 2
@@ -201,19 +200,19 @@ void Initialize(void){
                                 //Bit 0 clear = no shift in display.
         //LCD Initialization is done
     /***CONFIG SPI COMMICATION PERIPHERAL***/
-                            /*Sets register for no collision, no slave mode, 
-                              enables serial ports for SPI ports, 
+                            /*Sets register for no collision, no slave mode,
+                              enables serial ports for SPI ports,
                               idle clock high, Fosc/16*/
      SSPSTAT = 0b10000000; //Sets the data to be sampled at the end of the time
      SSPCON1 = 0b00110001;       //enable SPI, CLOCK idle high, fosc/16
-     
+
      /***CONFIG INTERRUPTS***/
     TRISBbits.RB0 = 1;      //Sets as input
     INTEDG0 = 1;            //Sets INT0 to high to low
     INT0F = 0;              //Clears INT0 Flag
     INT0E = 1;              //Enables external interrupt
     GIE = 1;                //Enables unmasked interrupt to execute ISR
-    
+
     TRISBbits.RB1 = 1;      //Sets as input
     INTEDG1 = 1;            //Sets INT1 to high to low
     INT1F = 0;              //Clears INT1 Flag
@@ -332,9 +331,9 @@ void __interrupt() changeTime(void){
                change_now = 0x01;
            //}
        //}
-        
+
     }
-    
+
     if(INT1F == 1){
         INT1F = 0;
         //use if conditions to make sure button is still being held down to
@@ -346,7 +345,7 @@ void __interrupt() changeTime(void){
            //}
        //}
     }
-    
+
 }
 
 void display_time(void){
@@ -363,22 +362,22 @@ void display_time(void){
 void display_seconds(void) {
     unsigned char sec;
     unsigned char sec10;
-    
+
     CS = 0;
-    
+
     // set clock to read at 0x00 (seconds register)
     spi_write(0x00);
-    
+
     // reads value in the seconds register
     sec = spi_read();
-    
+
     CS = 1;
-    
+
     // get value of upper nibble (10s place of seconds value)
     sec10 = (sec >> 4);
     // get value of lower nibble (1s place of seconds value)
     sec = sec & 0x0F;
-    
+
     // display on the LCD
     lcd_putch(sec10 + number);
     lcd_putch(sec + number);
@@ -388,23 +387,23 @@ void display_seconds(void) {
 void display_minutes(void) {
     unsigned char min;
     unsigned char min10;
-    
+
     CS = 0;
-    
+
     // set clock to read at 0x01 (minutes register)
     spi_write(0x01);
-    
+
     // reads value in the minutes register
     min = spi_read();
-    
+
     CS = 1;
-    
+
     // get value of upper nibble (10s place of minutes value)
     min10 = min >> 4; //0b0000 0111 // 0010
-    
+
     // get value of lower nibble (1s place of minutes value)
     min = min & 0x0F;
-    
+
     // display on the LCD
     lcd_putch(min10 + number);
     lcd_putch(min + number);
@@ -418,14 +417,14 @@ void display_hours(void) {
     unsigned char bit5;
 
     CS = 0;
-    
+
     spi_write(0x02);
     hour = spi_read();
-    
+
     CS = 1;
-    
+
     bit6 = hour >> 6;
-    
+
     if(bit6){
         //12 hr mode
         flag12hr = 0x01;
@@ -437,7 +436,7 @@ void display_hours(void) {
         flagAP = bit5;  //set flag for use in other functions
         // get value of lower nibble (1s place of hour value)
         hour = hour & 0x0F;
-        
+
         // display on the LCD
         lcd_putch(hour10 + number);
         lcd_putch(hour + number);
@@ -492,7 +491,7 @@ void change_mode(void){
         CS = 1;
 
         clock_mode = hour_data >> 6;
-        if(clock_mode){ 
+        if(clock_mode){
             hours_count += hour_data & 0x0F;
             hours_count += ((hour_data >> 4) & 0x01) * 0x0A;
             bit5 = (hour_data >> 5) & 0x01;
@@ -512,25 +511,79 @@ void change_mode(void){
                 write_data = 0x20;
             }
             write_data += hours_count & 0x0F;
+            if(hour_data == 0x52){
+                write_data = 0x00;
+            }
         }
-        else{                                       //clock is in 24hr mode; convert 24 to 12 hr mode
-            static const unsigned char lookup_24hr[24] = { //00-23 ; 12am-11pm
-                0b01010010, 0b01000001, 0b01000010, 0b01000011, 0b01000100, 0b01000101, //12am-5am 
-                0b01000110, 0b01000111, 0b01001000, 0b01001001, 0b01010000, 0b01010001, //6am-11am
-                0b01110010, 0b01100001, 0b01100010, 0b01100011, 0b01100100, 0b01100101, //12pm-5pm
-                0b01100110, 0b01100111, 0b01101000, 0b01101001, 0b01110000, 0b01110001 //6pm-11pm
-            };
+        //clock is in 24hr mode; convert 24 to 12 hr mode
+        else{
+            hours_count += hour_data & 0x0F;                    // gets right most nibble value (3)
+            ten_hour_bit = hour_data >> 0x04;                   // see if 10 hr bit high
+            if(ten_hour_bit){		     	                    // if 1
+                hours_count += 10;		                        // add 10 to hours_count value (13)
+                    if(hours_count > 12){		                // if this value is gr8er than 12
+                        hours_count -= 12;                      // subtract 12 hours to goto 12 hr form
+                        switch(hours_count){
+                            case 1:
+                                write_data = 0b01100001;
+                            case 2:
+                                write_data = 0b01100010;
+                            case 3:
+                                write_data = 0b01100011;
+                            case 4:
+                                write_data = 0b01100100;
+                            case 5:
+                                write_data = 0b01100101;
+                            case 6:
+                                write_data = 0b01100110;
+                            case 7:
+                                write_data = 0b01100111;
+                            case 8:
+                                write_data = 0b01101000;
+                            case 9:
+                                write_data = 0b01101001;
+                            case 10:
+                                write_data = 0b01110000;
+                            case 11:
+                                write_data = 0b01110001;
+                            default:
+                                write_data = 0b01110010;
+                        }
+                    }
+                }
+                // otherwise it is the AM hours
+                else{
+                    switch(hours_count){
+                        case 1:
+                            write_data = 0b00000001;
+                        case 2:
+                            write_data = 0b00000010;
+                        case 3:
+                            write_data = 0b00000011;
+                        case 4:
+                            write_data = 0b00000100;
+                        case 5:
+                            write_data = 0b00000101;
+                        case 6:
+                            write_data = 0b00000110;
+                        case 7:
+                            write_data = 0b00000111;
+                        case 8:
+                            write_data = 0b00001000;
+                        case 9:
+                            write_data = 0b00001001;
+                        case 10:
+                            write_data = 0b00010000;
+                        case 11:
+                            write_data = 0b00010001;
+                        default:
+                            write_data = 0b00010010;
 
-            hours_count += hour_data & 0x0F;        //get ones place of hours, maximum of 9
-            hours_count += (hour_data >> 4) * 0x0A; //get tens place, multiply by ten and then sum
-            hours_count += (hour_data >> 5) * 0x14; //get 20 hr bit, multiply by twenty and then sum
-
-            write_data = lookup_24hr[hours_count];
+                    }
+                }
         }
-
         CS = 0;                                     //select RTC
         spi_write(0x82);                            //Give it the write command to the hr register
         spi_write(write_data);                      //write modified configuration
         CS = 1;                                     //deselect RTC
-    }
 }
