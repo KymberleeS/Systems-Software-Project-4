@@ -1,4 +1,4 @@
-/********************************************************************
+/*=============================================================================
  FileName:     	main.c
  Dependencies:	See INCLUDES section
  Processor:		PIC18F2580 Microcontrollers
@@ -8,12 +8,13 @@
 				Donald Lanoux
 				Bradley Crutchfield
 				Kymberlee Sables
- File Description: This program interfaces with a 16x2 LCD from Sparkfun.
- The LCD-00255 is a 5 Volt black-on-green backlit LCD that has a parallel
- interface. The interface is controlled with an HD44780 compatible controller.
- The Sparkfun website includes the board datasheet: GDM1602K. The board datasheet
- mentions the use of the KS0066U controller which is equivalent to the HD44780.
-********************************************************************/
+
+ File Description: This program allows the MCU to read from the DS3234 RTC which
+ maintains track of time from seconds to years. The MCU and RTC communicate via
+ SPI interface and that data is then broken down and displayed to the 
+ HD44760 LCD. A button can be pressed to configure the RTC as well as switch
+ from 12 hour mode to 24 hour (HH:MM:SSAM/PM or HH:MM:SS).
+===============================================================================*/
 
 #include <xc.h>
 #include <stdlib.h>
@@ -109,19 +110,21 @@ void lcd_goto(unsigned char c);
 void spi_write(unsigned char x);
 void set_timer(void);
 void display_time(void);
-void __interrupt() changeTime(void);
-unsigned char spi_comm(unsigned char spi_byte);
-unsigned char spi_read(void);
 void display_seconds(void);
 void display_minutes(void);
 void display_hours(void);
 void display_AMPM(void);
 void change_mode(void);
-//global flag
-unsigned char flagAP = 0x00;
-unsigned char flag12hr = 0x00;
+void __interrupt() changeTime(void);
+unsigned char spi_comm(unsigned char spi_byte);
+unsigned char spi_read(void);
+
+//global flags
+unsigned char flagAP     = 0x00;
+unsigned char flag12hr   = 0x00;
 unsigned char config_now = 0x00;
 unsigned char change_now = 0x00;
+
 /*----------------------------------------------------------
 	Subroutine: main
 -----------------------------------------------------------*/
@@ -199,10 +202,7 @@ void Initialize(void){
                                 //Bit 0 clear = no shift in display.
         //LCD Initialization is done
     /***CONFIG SPI COMMICATION PERIPHERAL***/
-                            /*Sets register for no collision, no slave mode,
-                              enables serial ports for SPI ports,
-                              idle clock high, Fosc/16*/
-     SSPSTAT = 0b10000000; //Sets the data to be sampled at the end of the time
+     SSPSTAT = 0b10000000;       //Sets the data to be sampled at the end of the time
      SSPCON1 = 0b00110001;       //enable SPI, CLOCK idle high, fosc/16
 
      /***CONFIG INTERRUPTS***/
@@ -324,25 +324,25 @@ void set_timer(void){
 void __interrupt() changeTime(void){
     if(INT0F == 1){
         INT0F = 0;
-        //if(PORTBbits.RB0 == 0){
-          // __delay_ms(1);
-          // if(PORTBbits.RB0 == 0){
+        if(PORTBbits.RB0 == 0){
+           __delay_ms(1);
+          if(PORTBbits.RB0 == 0){
                change_now = 0x01;
-           //}
-       //}
+           }
+       }
 
     }
 
     if(INT1F == 1){
-        INT1F = 0;
+      INT1F = 0;
         //use if conditions to make sure button is still being held down to
         //handle de-bounce issue
-      // if(PORTBbits.RB1 == 0){
-          // __delay_ms(1);
-           //if(PORTBbits.RB1 == 0){
+      if(PORTBbits.RB1 == 0){
+          __delay_ms(1);
+          if(PORTBbits.RB1 == 0){
                 config_now = 0x01;
-           //}
-       //}
+          }
+       }
     }
 
 }
@@ -357,20 +357,14 @@ void display_time(void){
     display_AMPM();
 }
 
-// function to display seconds
 void display_seconds(void) {
     unsigned char sec;
     unsigned char sec10;
 
-    CS = 0;
-
-    // set clock to read at 0x00 (seconds register)
-    spi_write(0x00);
-
-    // reads value in the seconds register
-    sec = spi_read();
-
-    CS = 1;
+    CS = 0;             // select RTC
+    spi_write(0x00);    // set clock to read at 0x00 (seconds register)
+    sec = spi_read();   // reads value in the seconds register
+    CS = 1;             // deselect RTC
 
     // get value of upper nibble (10s place of seconds value)
     sec10 = (sec >> 4);
@@ -387,42 +381,30 @@ void display_minutes(void) {
     unsigned char min;
     unsigned char min10;
 
-    CS = 0;
+    CS = 0;                     // select RTC
+    spi_write(0x01);            // set clock to read at 0x01 (minutes register)
+    min = spi_read();           // reads value in the minutes register
+    CS = 1;                     // deselect RTC
 
-    // set clock to read at 0x01 (minutes register)
-    spi_write(0x01);
+    min10 = min >> 4;           // get value of upper nibble (10s place of minutes value)
+    min = min & 0x0F;           // get value of lower nibble (1s place of minutes value)
 
-    // reads value in the minutes register
-    min = spi_read();
-
-    CS = 1;
-
-    // get value of upper nibble (10s place of minutes value)
-    min10 = min >> 4; //0b0000 0111 // 0010
-
-    // get value of lower nibble (1s place of minutes value)
-    min = min & 0x0F;
-
-    // display on the LCD
-    lcd_putch(min10 + number);
-    lcd_putch(min + number);
+    lcd_putch(min10 + number);  // display 10s digit on the LCD
+    lcd_putch(min + number);    // display 1s digit on the LCD
 }
 
-// function to display hours (doesn't currently check for 12/24 format according to bit 6)
 void display_hours(void) {
     unsigned char hour;
     unsigned char hour10;
     unsigned char bit6;
     unsigned char bit5;
 
-    CS = 0;
+    CS = 0;             // select RTC
+    spi_write(0x02);    // set RTC to read from 0x02 (hours register)
+    hour = spi_read();  // store value of hours register
+    CS = 1;             // deselect RTC
 
-    spi_write(0x02);
-    hour = spi_read();
-
-    CS = 1;
-
-    bit6 = hour >> 6;
+    bit6 = hour >> 6;   //
 
     if(bit6){
         //12 hr mode
@@ -515,87 +497,88 @@ void change_mode(void){
                 write_data = 0x00;
             }
         }
-    }
-    //clock is in 24hr mode; convert 24 to 12 hr mode
-    else{
-	    hours_count += hour_data & 0x0F;                    // gets right most nibble value (3)
-	    hours_count += ((hour_data >> 4) & 0x01) * 0x0A;                   // see if 10 hr bit high
+        else{//clock is in 24hr mode; convert 24 to 12 hr mode
+            hours_count += hour_data & 0x0F;                    // gets right most nibble value (3)
+            hours_count += ((hour_data >> 4) & 0x01) * 0x0A;    // gets hour10 bit and multiply by ten
+            hours_count += (hour_data >> 5) * 0x14;             // gets hour20 bit and multiply by twenty
             switch(hours_count){
-		case 1:
-			write_data = 0b01000001;
-			break;
-		case 2:
-			write_data = 0b01000010;
-			break;
-		case 3:
-			write_data = 0b01000011;
-			break;
-		case 4:
-			write_data = 0b01000100;
-			break;
-		case 5:
-			write_data = 0b01000101;
-			break;
-		case 6:
-			write_data = 0b01000110;
-			break;
-		case 7:
-			write_data = 0b01000111;
-			break;
-		case 8:
-			write_data = 0b01001000;
-			break;
-		case 9:
-			write_data = 0b01001001;
-			break;
-		case 10:
-			write_data = 0b01010000;					
-			break;
-		case 11:
-			write_data = 0b01010001;
-			break;
-		case 12:
-			write_data = 0b01110010;
-			break;
-		case 13:
-			write_data = 0b01100001;
-			break;
-		case 14:
-			write_data = 0b01100010;
-			break;
-		case 15:
-			write_data = 0b01100011;
-			break;
-		case 16:
-			write_data = 0b01100100;
-			break;
-		case 17:
-			write_data = 0b01100101;
-			break;
-		case 18:
-			write_data = 0b01100110;
-			break;
-		case 19:
-			write_data = 0b01100111;
-			break;
-		case 20:
-			write_data = 0b01101000;
-			break;
-		case 21:
-			write_data = 0b01101001;
-			break;
-		case 22:
-			write_data = 0b01110000;
-			break;
-		case 23:
-			write_data = 0b01110001;
-			break;
-		default:
-			write_data = 0b01010010;
-	    }
+                case 1:                         // 1 am
+                    write_data = 0b01000001;
+                    break;
+                case 2:                         // 2 am
+                    write_data = 0b01000010;
+                    break;
+                case 3:                         // 3 am
+                    write_data = 0b01000011;
+                    break;
+                case 4:                         // 4 am
+                    write_data = 0b01000100;
+                    break;
+                case 5:                         // 5 am
+                    write_data = 0b01000101;
+                    break;
+                case 6:                         // 6 am
+                    write_data = 0b01000110;
+                    break;
+                case 7:                         // 7 am
+                    write_data = 0b01000111;
+                    break;
+                case 8:                         // 8 am
+                    write_data = 0b01001000;
+                    break;
+                case 9:                         // 9 am
+                    write_data = 0b01001001;
+                    break;
+                case 10:                        // 10 am
+                    write_data = 0b01010000;					
+                    break;
+                case 11:                        // 11 am
+                    write_data = 0b01010001;
+                    break;
+                case 12:                        // 12 pm
+                    write_data = 0b01110010;
+                    break;
+                case 13:                        // 1 pm
+                    write_data = 0b01100001;
+                    break;
+                case 14:                        // 2 pm
+                    write_data = 0b01100010;    
+                    break;
+                case 15:                        // 3 pm
+                    write_data = 0b01100011;    
+                    break;
+                case 16:                        // 4 pm
+                    write_data = 0b01100100;
+                    break;
+                case 17:                        // 5 pm
+                    write_data = 0b01100101;
+                    break;
+                case 18:                        // 6 pm
+                    write_data = 0b01100110;
+                    break;
+                case 19:                        // 7 pm
+                    write_data = 0b01100111;
+                    break;
+                case 20:                        // 8 pm
+                    write_data = 0b01101000;
+                    break;
+                case 21:                        // 9 pm
+                    write_data = 0b01101001;
+                    break;
+                case 22:                        // 10 pm
+                    write_data = 0b01110000;
+                    break;
+                case 23:                        // 11 pm
+                    write_data = 0b01110001;
+                    break;
+                default:                        // 12 am
+                    write_data = 0b01010010;
+            }
         }
+        
         CS = 0;                                     //select RTC
         spi_write(0x82);                            //Give it the write command to the hr register
         spi_write(write_data);                      //write modified configuration
         CS = 1;                                     //deselect RTC
+    }
 }
