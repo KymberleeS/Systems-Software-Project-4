@@ -509,89 +509,93 @@ void change_mode(void){
                 hours_count -= 0x14;
                 write_data += 0x20;
             }
+		
             write_data += hours_count & 0x0F;
             if(hour_data == 0x52){
                 write_data = 0x00;
             }
         }
-        //clock is in 24hr mode; convert 24 to 12 hr mode
-        else{
-		hours_count += hour_data & 0x0F;                    // gets right most nibble value (3)
-            	hours_count += ((hour_data >> 4) & 0x01) * 0x0A;                   // see if 10 hr bit high
-            	switch(hours_count){
-			case 1:
-				write_data = 0b01000001;
-				break;
-			case 2:
-				write_data = 0b01000010;
-				break;
-			case 3:
-				write_data = 0b01000011;
-				break;
-			case 4:
-				write_data = 0b01000100;
-				break;
-			case 5:
-				write_data = 0b01000101;
-				break;
-			case 6:
-				write_data = 0b01000110;
-				break;
-			case 7:
-				write_data = 0b01000111;
-				break;
-			case 8:
-				write_data = 0b01001000;
-				break;
-			case 9:
-				write_data = 0b01001001;
-				break;
-			case 10:
-				write_data = 0b01010000;					
-				break;
-			case 11:
-				write_data = 0b01010001;
-				break;
-			case 12:
-				write_data = 0b01110010;
-				break;
-			case 13:
-				write_data = 0b01100001;
-				break;
-			case 14:
-				write_data = 0b01100010;
-				break;
-			case 15:
-				write_data = 0b01100011;
-				break;
-			case 16:
-				write_data = 0b01100100;
-				break;
-			case 17:
-				write_data = 0b01100101;
-				break;
-			case 18:
-				write_data = 0b01100110;
-				break;
-			case 19:
-				write_data = 0b01100111;
-				break;
-			case 20:
-				write_data = 0b01101000;
-				break;
-			case 21:
-				write_data = 0b01101001;
-				break;
-			case 22:
-				write_data = 0b01110000;
-				break;
-			case 23:
-				write_data = 0b01110001;
-				break;
-			default:
-				write_data = 0b01010010;
+    }
+    //clock is in 24hr mode; convert 24 to 12 hr mode
+    else{
+	    hours_count += hour_data & 0x0F;                    // gets right most nibble value (3)
+	    hours_count += ((hour_data >> 4) & 0x01) * 0x0A;                   // see if 10 hr bit high
+            switch(hours_count){
+		case 1:
+			write_data = 0b01000001;
+			break;
+		case 2:
+			write_data = 0b01000010;
+			break;
+		case 3:
+			write_data = 0b01000011;
+			break;
+		case 4:
+			write_data = 0b01000100;
+			break;
+		case 5:
+			write_data = 0b01000101;
+			break;
+		case 6:
+			write_data = 0b01000110;
+			break;
+		case 7:
+			write_data = 0b01000111;
+			break;
+		case 8:
+			write_data = 0b01001000;
+			break;
+		case 9:
+			write_data = 0b01001001;
+			break;
+		case 10:
+			write_data = 0b01010000;					
+			break;
+		case 11:
+			write_data = 0b01010001;
+			break;
+		case 12:
+			write_data = 0b01110010;
+			break;
+		case 13:
+			write_data = 0b01100001;
+			break;
+		case 14:
+			write_data = 0b01100010;
+			break;
+		case 15:
+			write_data = 0b01100011;
+			break;
+		case 16:
+			write_data = 0b01100100;
+			break;
+		case 17:
+			write_data = 0b01100101;
+			break;
+		case 18:
+			write_data = 0b01100110;
+			break;
+		case 19:
+			write_data = 0b01100111;
+			break;
+		case 20:
+			write_data = 0b01101000;
+			break;
+		case 21:
+			write_data = 0b01101001;
+			break;
+		case 22:
+			write_data = 0b01110000;
+			break;
+		case 23:
+			write_data = 0b01110001;
+			break;
+		default:
+			write_data = 0b01010010;
+	    }
         }
         CS = 0;                                     //select RTC
         spi_write(0x82);                            //Give it the write command to the hr register
         spi_write(write_data);                      //write modified configuration
         CS = 1;                                     //deselect RTC
+}
