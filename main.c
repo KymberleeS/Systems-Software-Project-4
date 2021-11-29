@@ -13,7 +13,6 @@
  interface. The interface is controlled with an HD44780 compatible controller.
  The Sparkfun website includes the board datasheet: GDM1602K. The board datasheet
  mentions the use of the KS0066U controller which is equivalent to the HD44780.
-
 ********************************************************************/
 
 #include <xc.h>
@@ -508,7 +507,7 @@ void change_mode(void){
             }
             else{
                 hours_count -= 0x14;
-                write_data = 0x20;
+                write_data += 0x20;
             }
             write_data += hours_count & 0x0F;
             if(hour_data == 0x52){
@@ -526,26 +525,37 @@ void change_mode(void){
                         switch(hours_count){
                             case 1:
                                 write_data = 0b01100001;
+				break;
                             case 2:
                                 write_data = 0b01100010;
+				break;
                             case 3:
                                 write_data = 0b01100011;
+				break;
                             case 4:
                                 write_data = 0b01100100;
+				break;
                             case 5:
                                 write_data = 0b01100101;
+				break;
                             case 6:
                                 write_data = 0b01100110;
+				break;
                             case 7:
                                 write_data = 0b01100111;
+				break;
                             case 8:
                                 write_data = 0b01101000;
+				break;
                             case 9:
                                 write_data = 0b01101001;
+				break;
                             case 10:
                                 write_data = 0b01110000;
+				break;
                             case 11:
                                 write_data = 0b01110001;
+				break;
                             default:
                                 write_data = 0b01110010;
                         }
@@ -555,30 +565,40 @@ void change_mode(void){
                 else{
                     switch(hours_count){
                         case 1:
-                            write_data = 0b00000001;
+                            	write_data = 0b00000001;
+				break;
                         case 2:
-                            write_data = 0b00000010;
+                           	write_data = 0b00000010;
+				break;
                         case 3:
-                            write_data = 0b00000011;
+                            	write_data = 0b00000011;
+				break;
                         case 4:
-                            write_data = 0b00000100;
+                            	write_data = 0b00000100;
+				break;
                         case 5:
-                            write_data = 0b00000101;
+                            	write_data = 0b00000101;
+				break;
                         case 6:
-                            write_data = 0b00000110;
+				write_data = 0b00000110;
+				break;
                         case 7:
-                            write_data = 0b00000111;
+                            	write_data = 0b00000111;
+				break;
                         case 8:
-                            write_data = 0b00001000;
+                            	write_data = 0b00001000;
+				break;
                         case 9:
-                            write_data = 0b00001001;
+                            	write_data = 0b00001001;
+				break;
                         case 10:
-                            write_data = 0b00010000;
+                        	write_data = 0b00010000;
+				break;
                         case 11:
-                            write_data = 0b00010001;
+                            	write_data = 0b00010001;
+				break;
                         default:
-                            write_data = 0b00010010;
-
+                            	write_data = 0b00010010;
                     }
                 }
         }
@@ -586,4 +606,3 @@ void change_mode(void){
         spi_write(0x82);                            //Give it the write command to the hr register
         spi_write(write_data);                      //write modified configuration
         CS = 1;                                     //deselect RTC
-}
